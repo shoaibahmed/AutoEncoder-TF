@@ -6,13 +6,13 @@ Implementation of Dense and Convolutional Autoencoder in TensorFlow.
 
 <br/>TensorFlow Dataset API has been utilized for data reading in the latest version of the trainer i.e. <b>trainer_ae_latest.py</b>.
 <br/>To start training of convolutional auto-encoder from scratch along with tensorboard visualization, use the following command:
-'''
-python ./trainer\_ae\_latest.py -t -s --tensorboardVisualization --convolutionalAutoencoder --batchSize 50 --logsDir ./logs/ --modelDir ./model/
-'''
+```
+python ./trainer_ae_latest.py -t -s --tensorboardVisualization --convolutionalAutoencoder --batchSize 50 --logsDir ./logs/ --modelDir ./model/
+```
 Similarly, for testing along with computation of the output image files, use the command:
-'''
-python ./trainer\_ae\_latest.py -c --computeOutputImages --imagesOutputDirectory ./AutoEnc-output/
-'''
+```
+python ./trainer_ae_latest.py -c --computeOutputImages --imagesOutputDirectory ./AutoEnc-output/
+```
 
 <br/><br/> Author: <b>Shoaib Ahmed Siddiqui</b>
 <br/> Email: <b>12bscsssiddiqui@seecs.edu.pk</b>
