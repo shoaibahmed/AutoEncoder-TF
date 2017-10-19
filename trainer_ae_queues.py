@@ -356,21 +356,21 @@ if options.testModel:
 					minVal = np.min(squaredError)
 					maxVal = np.max(squaredError)
 					# squaredError = (squaredError - minVal) / (maxVal - minVal)
-					squaredError = (squaredError + minVal) / (maxVal - minVal)
+					squaredError = (squaredError - minVal) / (maxVal - minVal)
 					squaredError = squaredError * 255.0
 					squaredError = np.uint8(squaredError)
 
 					minVal = np.min(batchImagesTest[i, :, :, :])
 					maxVal = np.max(batchImagesTest[i, :, :, :])
 					# originalImage = (batchImagesTest[i, :, :, :] - minVal) / (maxVal - minVal)
-					originalImage = (batchImagesTest[i, :, :, :] + minVal) / (maxVal - minVal)
+					originalImage = (batchImagesTest[i, :, :, :] - minVal) / (maxVal - minVal)
 					originalImage = originalImage * 255.0
 					originalImage = np.uint8(originalImage)
 
 					minVal = np.min(outputImages[i, :, :, :])
 					maxVal = np.max(outputImages[i, :, :, :])
 					# reconstructedImage = (outputImages[i, :, :, :] - minVal) / (maxVal - minVal)
-					reconstructedImage = (outputImages[i, :, :, :] + minVal) / (maxVal - minVal)
+					reconstructedImage = (outputImages[i, :, :, :] - minVal) / (maxVal - minVal)
 					reconstructedImage = reconstructedImage * 255.0
 					reconstructedImage = np.uint8(reconstructedImage)
 
