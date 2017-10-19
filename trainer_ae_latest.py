@@ -22,11 +22,11 @@ parser.add_option("-o", "--computeOutputImages", action="store_true", dest="comp
 parser.add_option("-s", "--startTrainingFromScratch", action="store_true", dest="startTrainingFromScratch", default=False, help="Start training from scratch")
 parser.add_option("-v", "--verbose", action="store", type="int", dest="verbose", default=0, help="Verbosity level")
 parser.add_option("--tensorboardVisualization", action="store_true", dest="tensorboardVisualization", default=False, help="Enable tensorboard visualization")
-parser.add_option("--convolutionalAutoencoder", action="store_true", dest="convolutionalAutoencoder", default=True, help="Use convolutional autoencoder instead of shallow autoencoder")
+parser.add_option("--convolutionalAutoencoder", action="store_true", dest="convolutionalAutoencoder", default=False, help="Use convolutional autoencoder instead of shallow autoencoder")
 
 # Input Reader Params
-parser.add_option("--trainFileName", action="store", type="string", dest="trainFileName", default="/home/siddiqui/Packages/AutoEncoder-TF/io.txt", help="Text file name to be used for training")
-parser.add_option("--testFileName", action="store", type="string", dest="testFileName", default="/home/siddiqui/Packages/AutoEncoder-TF/nio.txt", help="Text file name to be used for testing")
+parser.add_option("--trainFileName", action="store", type="string", dest="trainFileName", default="./io.txt", help="Text file name to be used for training")
+parser.add_option("--testFileName", action="store", type="string", dest="testFileName", default="./nio.txt", help="Text file name to be used for testing")
 parser.add_option("--imageWidth", action="store", type="int", dest="imageWidth", default=640, help="Image width for feeding into the network")
 parser.add_option("--imageHeight", action="store", type="int", dest="imageHeight", default=480, help="Image height for feeding into the network")
 parser.add_option("--imageChannels", action="store", type="int", dest="imageChannels", default=1, help="Number of channels in image for feeding into the network")
@@ -36,7 +36,7 @@ parser.add_option("--randomFetchTest", action="store_true", dest="randomFetchTes
 # Trainer Params
 parser.add_option("--learningRate", action="store", type="float", dest="learningRate", default=1e-4, help="Learning rate")
 parser.add_option("--trainingEpochs", action="store", type="int", dest="trainingEpochs", default=50, help="Training epochs")
-parser.add_option("--batchSize", action="store", type="int", dest="batchSize", default=20, help="Batch size")
+parser.add_option("--batchSize", action="store", type="int", dest="batchSize", default=3, help="Batch size")
 parser.add_option("--displayStep", action="store", type="int", dest="displayStep", default=5, help="Progress display step")
 parser.add_option("--saveStep", action="store", type="int", dest="saveStep", default=1000, help="Progress save step")
 parser.add_option("--evaluateStep", action="store", type="int", dest="evaluateStep", default=100000, help="Progress evaluation step")
@@ -45,7 +45,7 @@ parser.add_option("--evaluateStep", action="store", type="int", dest="evaluateSt
 parser.add_option("--logsDir", action="store", type="string", dest="logsDir", default="./logs/", help="Directory for saving logs")
 parser.add_option("--modelDir", action="store", type="string", dest="modelDir", default="./model/", help="Directory for saving the model")
 parser.add_option("--modelName", action="store", type="string", dest="modelName", default="bosch-autoencoder", help="Name to be used for saving the model")
-parser.add_option("--imagesOutputDirectory", action="store", type="string", dest="imagesOutputDirectory", default="/run/media/external/BoschData/AutoEnc-output/", help="Directory for saving output images")
+parser.add_option("--imagesOutputDirectory", action="store", type="string", dest="imagesOutputDirectory", default="/netscratch/siddiqui/Bosch/AutoEnc-output/", help="Directory for saving output images")
 
 # Network Params
 parser.add_option("--numClasses", action="store", type="int", dest="numClasses", default=2, help="Number of classes")
@@ -60,10 +60,11 @@ def _parse_function(filename):
 	image_string = tf.read_file(filename)
 	img = tf.image.decode_image(image_string)
 
-	if options.convolutionalAutoencoder:
-		img = tf.reshape(img, [options.imageHeight, options.imageWidth, options.imageChannels])
-	else:
-		img = tf.reshape(img, [options.imageHeight * options.imageWidth * options.imageChannels])
+	img = tf.reshape(img, [options.imageHeight, options.imageWidth, options.imageChannels])
+	# if options.convolutionalAutoencoder:
+	# 	img = tf.reshape(img, [options.imageHeight, options.imageWidth, options.imageChannels])
+	# else:
+	# 	img = tf.reshape(img, [options.imageHeight * options.imageWidth * options.imageChannels])
 	img = tf.cast(img, tf.float32) # Convert to float tensor
 	
 	# Normalize the image
@@ -91,7 +92,11 @@ with tf.variable_scope('Model'):
 	print ("Data shape: %s" % str(inputBatchImages.get_shape()))
 	
 	# Create model
-	ae = auto_encoder_with_spatial_transformer(inputBatchImages, options.trainModel)
+	if options.convolutionalAutoencoder:
+		# ae = auto_encoder_with_spatial_transformer(inputBatchImages, options.trainModel)
+		ae = convolutional_auto_encoder(inputBatchImages, options.trainModel)
+	else:
+		ae = dense_autoencoder(inputBatchImages, options.trainModel)
 	
 	variables_to_restore = slim.get_variables_to_restore()
 
@@ -101,6 +106,11 @@ with tf.name_scope('Loss'):
 	# cost function measures pixel-wise difference
 	mse_loss = tf.reduce_mean(tf.square(ae['y'] - inputBatchImages))
 	tf.add_to_collection('losses', mse_loss)
+
+	# Add L2 regularization on the feature vector
+	l2Lambda = 1e-8
+	l2RegLoss = l2Lambda * tf.reduce_sum(tf.square(ae['z']))
+	tf.add_to_collection('losses', l2RegLoss)
 	
 	loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
 
@@ -326,8 +336,8 @@ if options.testModel:
 			except tf.errors.OutOfRangeError:
 				print ("Computed all output images")
 
-				# Save image results
-				# plotImages = np.array(plotImages)
-				# inputReader.saveLastBatchResults(plotImages, titles=plotTitles, isTrain=False, rescale=False)
+			# Save image results
+			# plotImages = np.array(plotImages)
+			# inputReader.saveLastBatchResults(plotImages, titles=plotTitles, isTrain=False, rescale=False)
 
 	print ("Model tested")
