@@ -2,9 +2,65 @@ import tensorflow as tf
 import numpy as np
 import math
 
+def lrelu_func(x, leak = 0.2):
+    return tf.maximum(x, leak * x)
+
 def lrelu(x, name, leak = 0.2):
     with tf.name_scope(name):
         return tf.maximum(x, leak * x)
+
+def auto_encoder_with_spatial_transformer(x, phase):
+    # Input size: 480 x 640
+
+    # Convolutional backbone
+    net = tf.layers.conv2d(inputs=x, filters=64, kernel_size=(7, 7), strides=(2, 2), padding='same', activation=None, name='conv1') # Output size: 240 x 320
+    net = tf.layers.batch_normalization(inputs=net, center=True, scale=True, training=phase, name='conv1_bn')
+    net = lrelu(net, name='conv1_lrelu')
+
+    net = tf.layers.conv2d(inputs=net, filters=128, kernel_size=(7, 7), strides=(2, 2), padding='same', activation=None, name='conv2') # Output size: 120 x 160
+    net = tf.layers.batch_normalization(inputs=net, center=True, scale=True, training=phase, name='conv2_bn')
+    net = lrelu(net, name='conv2_lrelu')
+
+    net = tf.layers.conv2d(inputs=net, filters=256, kernel_size=(3, 3), strides=(1, 1), padding='same', activation=None, name='conv3') # Output size: 120 x 160
+    net = tf.layers.batch_normalization(inputs=net, center=True, scale=True, training=phase, name='conv3_bn')
+    net = lrelu(net, name='conv3_lrelu')
+    net = tf.layers.max_pooling2d(inputs=net, pool_size=(2, 2), strides=(2, 2), name='pool3') # Output size: 60 x 80
+
+    net = tf.layers.conv2d(inputs=net, filters=384, kernel_size=(3, 3), strides=(1, 1), padding='same', activation=None, name='conv4') # Output size: 60 x 80
+    net = tf.layers.batch_normalization(inputs=net, center=True, scale=True, training=phase, name='conv4_bn')
+    net = lrelu(net, name='conv4_lrelu')
+    net = tf.layers.max_pooling2d(inputs=net, pool_size=(2, 2), strides=(2, 2), name='pool4') # Output size: 30 x 40
+
+    net = tf.layers.conv2d(inputs=net, filters=512, kernel_size=(3, 3), strides=(1, 1), padding='same', activation=None, name='conv5') # Output size: 30 x 40
+    net = tf.layers.batch_normalization(inputs=net, center=True, scale=True, training=phase, name='conv5_bn')
+    net = lrelu(net, name='conv5_lrelu')
+    net = tf.layers.max_pooling2d(inputs=net, pool_size=(2, 2), strides=(2, 2), name='pool5') # Output size: 15 x 20
+
+    net = tf.layers.conv2d(inputs=net, filters=256, kernel_size=(7, 7), strides=(1, 1), padding='valid', activation=None, name='conv6') # Output size: 9 x 14
+    net = tf.layers.batch_normalization(inputs=net, center=True, scale=True, training=phase, name='conv6_bn')
+    net = lrelu(net, name='conv6_lrelu')
+
+    # Fully-connected network
+    numberOfTemplates = 64
+    z = tf.contrib.layers.flatten(net)
+    z = tf.layers.dense(inputs=z, units=numberOfTemplates, activation=None, name='fc1')
+    z = lrelu(z, name='z_lrelu')
+    print ("Z shape:")
+    print (z.get_shape())
+
+    # Decoder network
+    n_output = 640 * 480
+    limit = math.sqrt(6.0 / (n_output))
+    W = tf.Variable(tf.random_uniform([numberOfTemplates, n_output], -limit, limit))
+    y = tf.matmul(z, W)
+    y = tf.reshape(y, [-1, 480, 640, 1], name="output")
+
+    # tf.summary.image('Original Image', tf.reshape(x, [-1, 480, 640, 1]), max_outputs=3)
+    # tf.summary.image('Reconstructed Image', tf.reshape(y, [-1, 480, 640, 1]), max_outputs=3)
+    tf.summary.image('Original Image', x, max_outputs=3)
+    tf.summary.image('Reconstructed Image', y, max_outputs=3)
+
+    return {'x': x, 'z': z, 'y': y}
 
 # Dimensions should start from 640x480 (307,200), 320x240 (76,800), 160x120 (19,200), 80x60 (4,800), 40x30 (1,200), 20x15 (300)
 def dense_autoencoder(x, dimensions=[307200, 2048, 1024, 512, 256]):
